@@ -5,6 +5,7 @@ import sys
 from urlparse import urljoin
 import requests
 from bs4 import BeautifulSoup
+import re
 
 PROXY_HOST = ''
 
@@ -19,7 +20,7 @@ def process_html(html_text):
 
     for t in soup.find_all(text=True):
         text = unicode(t)
-        word_list = [word for word in text.split(' ')]
+        word_list = re.findall(r'\b[\wа-яА-Я]{6}\b', text, re.U)
         for word in word_list:
             if len(word) == 6:
                 text = text.replace(word, word + u"\u2122")
