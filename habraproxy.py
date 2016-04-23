@@ -4,10 +4,19 @@ import argparse
 import sys
 from urlparse import urljoin
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, element
 import re
+from urlparse import urlsplit, urlunsplit
+
 
 PROXY_HOST = ''
+DOMAIN = ''
+
+
+def clean_domain(domain):
+    domain = domain.replace('https://', '')
+    domain = domain.replace('http://', '')
+    return domain
 
 
 def get_page(url):
@@ -17,14 +26,23 @@ def get_page(url):
 
 def process_html(html_text):
     soup = BeautifulSoup(html_text, "html.parser")
+    excluded_tags = ['style', 'script']
+
+    proxy_host = clean_domain(PROXY_HOST)
+    for tag in soup.find_all(name='a', ):
+        url = urlsplit(tag.get('href', ''))
+        if url.netloc.startswith(proxy_host) or url.netloc.startswith('www.' + proxy_host):
+            url = url._replace(scheme='http')
+            url = url._replace(netloc=DOMAIN)
+            tag['href'] = urlunsplit(url)
 
     for t in soup.find_all(text=True):
-        text = unicode(t)
-        word_list = re.findall(r'\b[\w]{6}\b', text, re.U)
-        for word in word_list:
-            if len(word) == 6:
+        if t.parent.name not in excluded_tags and t.__class__ == element.NavigableString:
+            text = unicode(t)
+            word_list = list(set(re.findall(r'\b[\w]{6}\b', text, re.U)))
+            for word in word_list:
                 text = text.replace(word, word + u"\u2122")
-        t.replaceWith(text)
+            t.replaceWith(text)
     return str(soup)
 
 
@@ -54,7 +72,8 @@ def main(*args, **kwargs):
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--port', default=8080)
     parser.add_argument('-n', '--host', default='127.0.0.1')
-    parser.add_argument('-s', '--site', default='http://habrahabr.ru')
+    parser.add_argument('-d', '--domain', default=None)
+    parser.add_argument('-s', '--site', default='https://habrahabr.ru')
     namespace = parser.parse_args(sys.argv[1:])
 
     try:
@@ -64,6 +83,8 @@ def main(*args, **kwargs):
     host = namespace.host
     global PROXY_HOST
     PROXY_HOST = namespace.site
+    global DOMAIN
+    DOMAIN = namespace.domain if namespace.domain else '{0}:{1}'.format(host, port)
 
     server = BaseHTTPServer.HTTPServer((host, port), ProxyHandler)
     print 'Started httpserver on {0}:{1}'.format(host, port)
