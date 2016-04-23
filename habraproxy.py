@@ -47,10 +47,8 @@ def process_html(html_text):
 
 
 class ProxyHandler(BaseHTTPServer.BaseHTTPRequestHandler):
-    # Handler for the GET requests
     def do_GET(self):
         r = get_page(self.path)
-
 
         content_type = r.headers.get('Content-Type')
         if content_type and content_type.find('html') != -1:
@@ -82,7 +80,10 @@ def main(*args, **kwargs):
         port = 8080
     host = namespace.host
     global PROXY_HOST
-    PROXY_HOST = namespace.site
+    if namespace.site.startswith('http://') or namespace.site.startswith('https://'):
+        PROXY_HOST = namespace.site
+    else:
+        PROXY_HOST = 'http://' + namespace.site
     global DOMAIN
     DOMAIN = namespace.domain if namespace.domain else '{0}:{1}'.format(host, port)
 
